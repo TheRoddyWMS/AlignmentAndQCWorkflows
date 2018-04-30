@@ -27,9 +27,8 @@
         <cvalue name="LIBMAUS_VERSION" value="0.0.131" type="string"/>
         <cvalue name="BIOBAMBAM_VERSION" value="0.0.148" type="string"/>
         <cvalue name="JAVA_VERSION" value="1.8.0_131" type="string"/>
-        <cvalue name="PYPY_VERSION" value="5.0.1" type="string"/>
         <cvalue name="BWA_VERSION" value="0.7.8" type="string"
-                description="Use e.g. 0.7.8-r2.05 for a specific revision of bb-bwa. Suffix with -bisulfite to load a bisulfite patched version."/>
+                description="Use e.g. 0.7.8-r2.05 for a specific revision of bb-bwa."/>
         <cvalue name="FASTQC_VERSION" value="0.11.3" type="string"/>
 
         <cvalue name="workflowEnvironmentScript" value="workflowEnvironment_tbiPbs" type="string"/>

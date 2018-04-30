@@ -71,9 +71,6 @@ export PERL_BINARY=perl
 moduleLoad python
 export PYTHON_BINARY=python
 
-moduleLoad pypy
-export PYPY_BINARY=pypy-c
-
 moduleLoad samtools
 export SAMTOOLS_BINARY=samtools
 export BCFTOOLS_BINARY=bcftools

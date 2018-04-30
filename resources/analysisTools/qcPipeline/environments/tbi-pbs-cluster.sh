@@ -30,7 +30,6 @@ export PERL_BINARY="perl-${PERL_VERSION:?PERL_VERSION is not set}"
 export PYTHON_BINARY="python-${PYTHON_VERSION:?PYTHON_VERSION is not set}"
 export RSCRIPT_BINARY="Rscript-${R_VERSION:?R_VERSION is not set}"
 
-export PYPY_BINARY="pypy-c"
 export JAVA_BINARY="java8"
 
 if [[ "$WORKFLOW_ID" == "bisulfiteCoreAnalysis" ]]; then
