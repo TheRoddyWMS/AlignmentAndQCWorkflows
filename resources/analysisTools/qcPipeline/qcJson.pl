@@ -329,20 +329,20 @@ sub zip ($$) {
 
 
 sub ensureInt ($) {
-    my ($val) = @_;
-    if ($val !~ /^\d$/) {
+	my ($val) = @_;
+	if ($val !~ /^(?:\d|NaN|NA)$/) {
 		confess("Expected integer, got '$val'!");
-    }
-    return $val;
+	}
+	return $val;
 }
 
 
 sub ensureFloat ($) {
-    my ($val) = @_;
-    if ($val !~ /^(?:-?\d+(?:\.\d+)?|\d(?:\.\d+)?(?:[eE]-?\d+)?)$/) {
+	my ($val) = @_;
+	if ($val !~ /^(?:-?\d+(?:\.\d+)?|\d(?:\.\d+)?(?:[eE]-?\d+)?|NaN|NA)$/) {
 		confess("Expected float, got '$val'!");
-    }
-    return $val;
+	}
+	return $val;
 }
 
 
