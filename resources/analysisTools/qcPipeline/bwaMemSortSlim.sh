@@ -26,8 +26,8 @@ NP_COMBINEDANALYSIS_IN=${RODDY_SCRATCH}/np_combinedanalysis_in
 NP_FLAGSTATS=${RODDY_SCRATCH}/np_flagstats_in
 NP_SAMTOOLS_INDEX_IN=${RODDY_SCRATCH}/np_samtools_index_in
 
-MBUF_100M="${MBUFFER_BINARY} -m 100m -q -l /dev/null"
-MBUF_2G="${MBUFFER_BINARY} -m 2g -q -l /dev/null"
+MBUF_SMALL="${MBUFFER_BINARY} -m ${MBUFFER_SIZE_SMALL} -q -l /dev/null"
+MBUF_LARGE="${MBUFFER_BINARY} -m ${MBUFFER_SIZE_LARGE} -q -l /dev/null"
 
 mkfifo ${NP_READBINS_IN} ${NP_COVERAGEQC_IN} ${NP_COMBINEDANALYSIS_IN} ${NP_FLAGSTATS}
 
@@ -86,11 +86,11 @@ then
 	then
 		if [ "${qualityScore}" = "illumina" ]
 		then
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_2G > $i1" & procUnpack1=$!
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_2G > $i2" & procUnpack2=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_LARGE > $i1" & procUnpack1=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_LARGE > $i2" & procUnpack2=$!
 		else
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | $MBUF_2G > $i1" & procUnpack1=$!
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | $MBUF_2G > $i2" & procUnpack2=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | $MBUF_LARGE > $i1" & procUnpack1=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | $MBUF_LARGE > $i2" & procUnpack2=$!
 		fi
 		# done in the sourced script designed for bwa aln:
 		#     i1=$DIR_SCRATCH/at_i1
@@ -106,17 +106,17 @@ then
 		eval "$JAVA_BINARY -jar ${TOOL_ADAPTOR_TRIMMING} $ADAPTOR_TRIMMING_OPTIONS_0 $i1 $i2 $o1 $u1 $o2 $u2 $ADAPTOR_TRIMMING_OPTIONS_1" & procTrim=$!
 		# trimming with fastx does not work in combination with Trimmomatic!
 		# besides, bwa mem automagically reverts mate pair data
-		#cat $o1 ${TRIM_STEP} ${REVERSE_STEP} | $MBUF_2G > $FNPIPE1 &
-		#cat $o2 ${TRIM_STEP} ${REVERSE_STEP} | $MBUF_2G > $FNPIPE2 &
-		cat $o1 | $MBUF_2G > $FNPIPE1 &
-		cat $o2 | $MBUF_2G > $FNPIPE2 &
+		#cat $o1 ${TRIM_STEP} ${REVERSE_STEP} | $MBUF_LARGE > $FNPIPE1 &
+		#cat $o2 ${TRIM_STEP} ${REVERSE_STEP} | $MBUF_LARGE > $FNPIPE2 &
+		cat $o1 | $MBUF_LARGE > $FNPIPE1 &
+		cat $o2 | $MBUF_LARGE > $FNPIPE2 &
 	elif [ "${qualityScore}" = "illumina" ]	# bwa mem has no possibility to convert Illumina 1.3 scores
 	then
-		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_2G > $FNPIPE1" & procUnpack1=$!
-		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_2G > $FNPIPE2" & procUnpack2=$!
+		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_LARGE > $FNPIPE1" & procUnpack1=$!
+		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - | $MBUF_LARGE > $FNPIPE2" & procUnpack2=$!
 	else
-		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | $MBUF_2G > $FNPIPE1" & procUnpack1=$!
-		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | $MBUF_2G > $FNPIPE2" & procUnpack2=$!
+		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | $MBUF_LARGE > $FNPIPE1" & procUnpack1=$!
+		eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | $MBUF_LARGE > $FNPIPE2" & procUnpack2=$!
 	fi
 
 	INPUT_PIPES=""
@@ -135,7 +135,7 @@ fi
 (${TOOL_COVERAGE_QC_D_IMPL} --alignmentFile=${NP_COVERAGEQC_IN} --outputFile=${FILENAME_GENOME_COVERAGE}.tmp --processors=1 --basequalCutoff=${BASE_QUALITY_CUTOFF} --ungappedSizes=${CHROM_SIZES_FILE}) & procIDGenomeCoverage=$!
 
 # read bins
-(set -o pipefail; ${TOOL_GENOME_COVERAGE_D_IMPL} --alignmentFile=${NP_READBINS_IN} --outputFile=/dev/stdout --processors=4 --mode=countReads --windowSize=${WINDOW_SIZE} | $MBUF_100M | ${PERL_BINARY} ${TOOL_FILTER_READ_BINS} - ${CHROM_SIZES_FILE} > ${FILENAME_READBINS_COVERAGE}.tmp) & procIDReadbinsCoverage=$!
+(set -o pipefail; ${TOOL_GENOME_COVERAGE_D_IMPL} --alignmentFile=${NP_READBINS_IN} --outputFile=/dev/stdout --processors=4 --mode=countReads --windowSize=${WINDOW_SIZE} | $MBUF_SMALL | ${PERL_BINARY} ${TOOL_FILTER_READ_BINS} - ${CHROM_SIZES_FILE} > ${FILENAME_READBINS_COVERAGE}.tmp) & procIDReadbinsCoverage=$!
 
 # use sambamba for flagstats
 ${SAMBAMBA_FLAGSTATS_BINARY} flagstat -t 1 "$NP_FLAGSTATS" > "$tempFlagstatsFile" & procIDFlagstat=$!
@@ -145,22 +145,22 @@ then
 	echo "The BAM file already exists, re-creating other output files."
 	# make all the pipes
 	(cat ${FILENAME_SORTED_BAM} \
-	    | ${MBUF_2G} \
+	    | ${MBUF_LARGE} \
 	    | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} \
 	    | ${SAMBAMBA_BINARY} view /dev/stdin \
-	    | ${MBUF_2G} > $NP_COMBINEDANALYSIS_IN) \
+	    | ${MBUF_LARGE} > $NP_COMBINEDANALYSIS_IN) \
 	    & procIDOutPipe=$!
 else
 	if [[ "$ON_CONVEY" == true ]]
 	then	# we have to use sambamba and cannot make an index (because sambamba does not work with a pipe)
-		# here, we use the local scratch (${RODDY_SCRATCH}) for sorting!
+		# Here, we use always use the local scratch (${RODDY_SCRATCH}) for sorting!
 		useBioBamBamSort=false;
 		(set -o pipefail; \
 		    ${BWA_ACCELERATED_BINARY} mem ${BWA_MEM_CONVEY_ADDITIONAL_OPTIONS} -R "@RG\tID:${ID}\tSM:${SM}\tLB:${LB}\tPL:ILLUMINA" $BWA_MEM_OPTIONS ${INDEX_PREFIX} ${INPUT_PIPES} \
 		    2> $FILENAME_BWA_LOG \
-		    | $MBUF_2G \
+		    | $MBUF_LARGE \
 		    | tee $NP_COMBINEDANALYSIS_IN \
-		    | ${SAMBAMBA_BINARY} view -f bam -S -l 0 -t 8 /dev/stdin | $MBUF_2G \
+		    | ${SAMBAMBA_BINARY} view -f bam -S -l 0 -t 8 /dev/stdin | $MBUF_LARGE \
 		    | tee ${NP_FLAGSTATS} \
 		    | ${SAMBAMBA_BINARY} sort --tmpdir=${RODDY_SCRATCH} -l 9 -t 8 -m ${SAMPESORT_MEMSIZE} /dev/stdin -o /dev/stdout \
 		    2> $FILENAME_SORT_LOG \
@@ -179,8 +179,8 @@ else
 		${SAMTOOLS_BINARY} index ${NP_SAMTOOLS_INDEX_IN} ${tempBamIndexFile} & procID_IDX=$!
 		(set -o pipefail; \
 		    ${BWA_BINARY} mem -t ${BWA_MEM_THREADS} -R "@RG\tID:${ID}\tSM:${SM}\tLB:${LB}\tPL:ILLUMINA" $BWA_MEM_OPTIONS ${INDEX_PREFIX} ${INPUT_PIPES} \
-		    2> $FILENAME_BWA_LOG | $MBUF_2G | tee $NP_COMBINEDANALYSIS_IN \
-		    | ${SAMTOOLS_BINARY} view -uSbh - | $MBUF_2G \
+		    2> $FILENAME_BWA_LOG | $MBUF_LARGE | tee $NP_COMBINEDANALYSIS_IN \
+		    | ${SAMTOOLS_BINARY} view -uSbh - | $MBUF_LARGE \
 		    | ${SAMTOOLS_BINARY} sort -@ 8 -m ${SAMPESORT_MEMSIZE} -o - ${tempFileForSort} 2>$NP_SORT_ERRLOG \
 		    | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} ${NP_SAMTOOLS_INDEX_IN} \
 		    > ${tempSortedBamFile}; echo "$? (Pipe Exit Codes: ${PIPESTATUS[@]})" \
@@ -202,8 +202,8 @@ else
 		# Rewrite to a bamfile
 		(set -o pipefail; \
 		    ${BWA_BINARY} mem -t ${BWA_MEM_THREADS} -R "@RG\tID:${ID}\tSM:${SM}\tLB:${LB}\tPL:ILLUMINA" $BWA_MEM_OPTIONS ${INDEX_PREFIX} ${INPUT_PIPES} \
-		    2> $FILENAME_BWA_LOG | $MBUF_2G | tee $NP_COMBINEDANALYSIS_IN \
-		    | ${SAMTOOLS_BINARY} view -uSbh - | $MBUF_2G \
+		    2> $FILENAME_BWA_LOG | $MBUF_LARGE | tee $NP_COMBINEDANALYSIS_IN \
+		    | ${SAMTOOLS_BINARY} view -uSbh - | $MBUF_LARGE \
 		    | ${BAMSORT_BINARY} O=${NP_BAMSORT} level=1 inputthreads=2 outputthreads=2 \
 		        index=1 indexfilename=${tempBamIndexFile} calmdnm=1 calmdnmrecompindetonly=1 calmdnmreference=${INDEX_PREFIX} \
 		        tmpfile=${tempFileForSort} \

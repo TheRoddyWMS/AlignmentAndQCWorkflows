@@ -27,8 +27,8 @@ NP_SAMTOOLS_INDEX_IN=${RODDY_SCRATCH}/np_samtools_index_in
 NP_BWA_OUT=${RODDY_SCRATCH}/np_bwa_out
 NP_BCONV_OUT=${RODDY_SCRATCH}/np_bconv_out
 
-MBUF_100M="${MBUFFER_BINARY} -m 100m -q -l /dev/null"
-MBUF_2G="${MBUFFER_BINARY} -m 2g -q -l /dev/null"
+MBUF_SMALL="${MBUFFER_BINARY} -m ${MBUFFER_SIZE_SMALL} -q -l /dev/null"
+MBUF_LARGE="${MBUFFER_BINARY} -m ${MBUFFER_SIZE_LARGE} -q -l /dev/null"
 
 mkfifo ${NP_READBINS_IN} ${NP_COVERAGEQC_IN} ${NP_COMBINEDANALYSIS_IN} ${NP_FLAGSTATS} ${NP_BWA_OUT} ${NP_BCONV_OUT}
 
@@ -42,9 +42,9 @@ tempFlagstatsFile=${FILENAME_FLAGSTATS}.tmp
 # samtools sort may complain about truncated temp files and for each line outputs
 # the error message. This happens when the same files are written at the same time,
 # see http://sourceforge.net/p/samtools/mailman/samtools-help/thread/BAA90EF6FE3B4D45A7B2F6E0EC5A8366DA3AB5@USTLMLLYC102.rf.lilly.com/
-NP_SORT_ERRLOG=${RODDY_SCRATCH}/NP_SORT_ERRLOG
-FILENAME_SORT_LOG=${DIR_TEMP}/${bamname}_errlog_sort
-FILENAME_BWA_EC=${DIR_TEMP}/${bamname}_ec
+NP_SORT_ERRLOG="$RODDY_SCRATCH/NP_SORT_ERRLOG"
+FILENAME_SORT_LOG="$DIR_TEMP/${bamname}_errlog_sort"
+FILENAME_BWA_EC="$DIR_TEMP/${bamname}_ec"
 
 RAW_SEQ=${RAW_SEQ_1}
 source ${TOOL_COMMON_ALIGNMENT_SETTINGS_SCRIPT}
@@ -128,7 +128,7 @@ if [[ ${bamFileExists} == false ]]; then	# we have to make the BAM
 fi
 
 # Try to read from pipes BEFORE they are filled.
-# in all cases:
+# In all cases:
 # SAM output is piped to perl script that calculates various QC measures
 (${PERL_BINARY} ${TOOL_COMBINED_BAM_ANALYSIS} -i ${NP_COMBINEDANALYSIS_IN} -a ${FILENAME_DIFFCHROM_MATRIX}.tmp -c ${CHROM_SIZES_FILE} -b ${FILENAME_ISIZES_MATRIX}.tmp  -f ${FILENAME_EXTENDED_FLAGSTATS}.tmp  -m ${FILENAME_ISIZES_STATISTICS}.tmp -o ${FILENAME_DIFFCHROM_STATISTICS}.tmp -p ${INSERT_SIZE_LIMIT} ) & procIDCBA=$!
 
@@ -136,7 +136,7 @@ fi
 (${TOOL_COVERAGE_QC_D_IMPL} --alignmentFile=${NP_COVERAGEQC_IN} --outputFile=${FILENAME_GENOME_COVERAGE}.tmp --processors=1 --basequalCutoff=${BASE_QUALITY_CUTOFF} --ungappedSizes=${CHROM_SIZES_FILE}) & procIDGenomeCoverage=$!
 
 # read bins
-(set -o pipefail; ${TOOL_GENOME_COVERAGE_D_IMPL} --alignmentFile=${NP_READBINS_IN} --outputFile=/dev/stdout --processors=4 --mode=countReads --windowSize=${WINDOW_SIZE} | $MBUF_100M | ${PERL_BINARY} ${TOOL_FILTER_READ_BINS} - ${CHROM_SIZES_FILE} > ${FILENAME_READBINS_COVERAGE}.tmp) & procIDReadbinsCoverage=$!
+(set -o pipefail; ${TOOL_GENOME_COVERAGE_D_IMPL} --alignmentFile=${NP_READBINS_IN} --outputFile=/dev/stdout --processors=4 --mode=countReads --windowSize=${WINDOW_SIZE} | $MBUF_SMALL | ${PERL_BINARY} ${TOOL_FILTER_READ_BINS} - ${CHROM_SIZES_FILE} > ${FILENAME_READBINS_COVERAGE}.tmp) & procIDReadbinsCoverage=$!
 
 # use sambamba for flagstats
 (set -o pipefail; cat ${NP_FLAGSTATS} | ${SAMBAMBA_FLAGSTATS_BINARY} flagstat -t 1 /dev/stdin > $tempFlagstatsFile) & procIDFlagstat=$!
@@ -144,8 +144,8 @@ fi
 if [[ ${bamFileExists} == true ]]; then
 	echo "the BAM file already exists, re-creating other output files."
 	# make all the pipes
-	(cat ${FILENAME_SORTED_BAM} | ${MBUF_2G} | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} \
-	    | ${SAMBAMBA_BINARY} view /dev/stdin | ${MBUF_2G} > $NP_COMBINEDANALYSIS_IN) & procIDOutPipe=$!
+	(cat ${FILENAME_SORTED_BAM} | ${MBUF_LARGE} | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} \
+	    | ${SAMBAMBA_BINARY} view /dev/stdin | ${MBUF_LARGE} > $NP_COMBINEDANALYSIS_IN) & procIDOutPipe=$!
 else
 	if [[ ${useBioBamBamSort} == false ]]; then
 		# we use samtools for making the index
@@ -172,7 +172,7 @@ else
 		${SAMTOOLS_BINARY} view -h ${NP_BCONV_OUT} | \
 		tee ${NP_COMBINEDANALYSIS_IN} | \
 		${SAMTOOLS_BINARY} view -uSbh -F 2304 - | \
-		$MBUF_2G | \
+		$MBUF_LARGE | \
 		${SAMTOOLS_BINARY} sort -@ 8 \
 			-m ${SAMPESORT_MEMSIZE} \
 			-o - ${tempFileForSort} 2>$NP_SORT_ERRLOG | \
@@ -240,7 +240,19 @@ mv ${tempFlagstatsFile} ${FILENAME_FLAGSTATS} || throw 33 "Could not move file"
 # QC summary
 # remove old warnings file if it exists (due to errors in run such as wrong chromsizes file)
 [[ -f ${FILENAME_QCSUMMARY}_WARNINGS.txt ]] && rm ${FILENAME_QCSUMMARY}_WARNINGS.txt
-(${PERL_BINARY} $TOOL_WRITE_QC_SUMMARY -p $PID -s $SAMPLE -r $RUN -l $LANE -w ${FILENAME_QCSUMMARY}_WARNINGS.txt -f $FILENAME_FLAGSTATS -d $FILENAME_DIFFCHROM_STATISTICS -i $FILENAME_ISIZES_STATISTICS -c $FILENAME_GENOME_COVERAGE > ${FILENAME_QCSUMMARY}_temp && mv ${FILENAME_QCSUMMARY}_temp $FILENAME_QCSUMMARY) || ( echo "Error from writeQCsummary.pl" && exit 12)
+${PERL_BINARY} $TOOL_WRITE_QC_SUMMARY \
+    -p $PID \
+    -s $SAMPLE \
+    -r $RUN \
+    -l $LANE \
+    -w ${FILENAME_QCSUMMARY}_WARNINGS.txt \
+    -f $FILENAME_FLAGSTATS \
+    -d $FILENAME_DIFFCHROM_STATISTICS \
+    -i $FILENAME_ISIZES_STATISTICS \
+    -c $FILENAME_GENOME_COVERAGE \
+    > ${FILENAME_QCSUMMARY}_temp \
+    && mv ${FILENAME_QCSUMMARY}_temp $FILENAME_QCSUMMARY \
+    || throw 12 "Error from writeQCsummary.pl"
 
 # Produced qualitycontrol.json for OTP.
 ${PERL_BINARY} ${TOOL_QC_JSON} \
@@ -249,7 +261,7 @@ ${PERL_BINARY} ${TOOL_QC_JSON} \
 	${FILENAME_FLAGSTATS} \
 	${FILENAME_DIFFCHROM_STATISTICS} \
 	> ${FILENAME_QCJSON}.tmp \
-	|| throw 26 "Error when compiling qualitycontrol.json for ${FILENAME}, stopping here"
+	|| throw 26 "Error when compiling qualitycontrol.json for ${FILENAME_QCJSON}, stopping here"
 mv ${FILENAME_QCJSON}.tmp ${FILENAME_QCJSON} || throw 27 "Could not move file"
 
 # plots are only made for paired end and not on convey
@@ -258,3 +270,5 @@ mv ${FILENAME_QCJSON}.tmp ${FILENAME_QCJSON} || throw 27 "Could not move file"
 ${RSCRIPT_BINARY} ${TOOL_INSERT_SIZE_PLOT_SCRIPT} ${FILENAME_ISIZES_MATRIX} ${FILENAME_ISIZES_STATISTICS} ${FILENAME_ISIZES_PLOT}_temp "PE insertsize of ${bamname}" && mv ${FILENAME_ISIZES_PLOT}_temp ${FILENAME_ISIZES_PLOT} || ( echo "Error from insert sizes plotter" && exit 22)
 
 ${RSCRIPT_BINARY} ${TOOL_PLOT_DIFFCHROM} -i "$FILENAME_DIFFCHROM_MATRIX" -s "$FILENAME_DIFFCHROM_STATISTICS" -o "${FILENAME_DIFFCHROM_PLOT}_temp" && mv  ${FILENAME_DIFFCHROM_PLOT}_temp ${FILENAME_DIFFCHROM_PLOT} || ( echo "Error from chrom_diff.r" && exit 23)
+
+

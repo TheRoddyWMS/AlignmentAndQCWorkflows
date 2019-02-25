@@ -51,6 +51,9 @@
 
         <cvalue name='SAMBAMBA_MARKDUP_OPTS' value='"-t 6 -l 9 --hash-table-size=2000000 --overflow-list-size=1000000 --io-buffer-size=64"'/>
 
+        <cvalue name="MBUFFER_SIZE_LARGE" value="2g" type="string"/>
+        <cvalue name="MBUFFER_SIZE_SMALL" value="100m" type="string"/>
+
     </configurationvalues>
     <!--<testdataoptions>-->
         <!--&lt;!&ndash; id is the name of the test data option set-->
@@ -177,7 +180,7 @@
                 <!-- HiSeq full lane. 24 h would be OK but as soon as there are I/O problems on the node, not even 36 h are sufficient - biobambam sort might also be slower than samtools, it seems to use fewer sorting threads	 -->
                 <rset size="l" memory="20" cores="8" nodes="1" walltime="60"/>
                 <!-- X10 lane -->
-                <rset size="xl" memory="20" cores="8" nodes="1" walltime="120"/>
+                <rset size="xl" memory="20" cores="8" nodes="1" walltime="160"/>
             </resourcesets>
             <input type="file" typeof="de.dkfz.b080.co.files.LaneFile" scriptparameter="RAW_SEQ_1"/>
             <input type="file" typeof="de.dkfz.b080.co.files.LaneFile" scriptparameter="RAW_SEQ_2"/>
@@ -410,11 +413,11 @@
                 <!-- Test -->
                 <rset size="t" memory="30" cores="6" nodes="1" queue="devel"/>
                 <!-- Production -->
-                <rset size="xs" memory="30" cores="6" nodes="1" walltime="1"/>
-                <rset size="s" memory="35" cores="6" nodes="1" walltime="2"/>
-                <rset size="m" memory="40" cores="6" nodes="1" walltime="5"/>
-                <rset size="l" memory="45" cores="6" nodes="1" walltime="15"/>
-                <rset size="xl" memory="80" cores="6" nodes="1" walltime="60"/>
+                <rset size="xs" memory="3" cores="6" nodes="1" walltime="1"/>
+                <rset size="s" memory="4" cores="6" nodes="1" walltime="15"/>
+                <rset size="m" memory="5" cores="6" nodes="1" walltime="20"/>
+                <rset size="l" memory="6" cores="6" nodes="1" walltime="30"/>
+                <rset size="xl" memory="8" cores="6" nodes="1" walltime="80"/>
             </resourcesets>
             <!-- The first input object will be obsolete at some point, currently, filegroups cannot be the first object. -->
             <input type="file" typeof="de.dkfz.b080.co.files.BamFile" scriptparameter="IGNORED_FILENAME"/>

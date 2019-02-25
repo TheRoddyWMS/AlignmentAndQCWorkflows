@@ -186,7 +186,7 @@ elif markWithSambamba; then
     	(${SAMBAMBA_MARKDUP_BINARY} markdup $SAMBAMBA_MARKDUP_OPTS --tmpdir="$tempDirectory" ${INPUT_FILES[@]} "$NP_PIC_OUT"; \
 	        echo $? > "$returnCodeMarkDuplicatesFile") & procIDMarkdup=$!
 	else
-	    # Only use the existing target BAM
+	    # The BAM file exists.
         (cat "$FILENAME" \
             | mbuf 2g \
             | tee "$NP_INDEX_IN" "$NP_FLAGSTATS_IN" "$NP_COVERAGEQC_IN" "$NP_READBINS_IN" \
@@ -226,9 +226,9 @@ elif markWithBiobambam; then
         # make a SAM pipe for the Perl tool
         ${SAMTOOLS_BINARY} view ${NP_SAM_IN} | mbuf 2g > ${NP_COMBINEDANALYSIS_IN} & procIDSamtoolsView=$!
     else
-        # Only use the existing target BAM
-        # Note that this code block is kind of triplicated, because in this branch there is no tee into $NP_INDEX_IN because biobambam can do the
-        # indexing directly.
+        # The BAM file exists.
+        ## The only difference here to the picard and sambamba is that here no NP_INDEX_IN is used, because biobambam creates
+        ## the index on the fly.
         (cat "$FILENAME" \
             | mbuf 2g \
             | tee ${NP_FLAGSTATS_IN} ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} \
@@ -237,8 +237,6 @@ elif markWithBiobambam; then
         # To prevent abundancy of ifs, reuse the process id another time.
         procIDMarkOutPipe=$procIDSamtoolsView
         procIDMd5=$procIDSamtoolsView
-        ## The only difference here to the picard and sambamba is that here no NP_INDEX_IN is used, because biobambam creates
-        ## the index on the fly.
     fi
 
 else
@@ -296,8 +294,6 @@ elif markWithSambamba; then
       	waitAndMaybeExit $procIDMd5 "Error from MD5" 15
         mv ${tempMd5File} ${FILENAME}.md5 || throw 36 "Could not move file"
     fi
-	# index is always made again, needs to be updated to not be older than BAM
-	# this file does not exist!!!!!!!
 	waitAndMaybeExit $procIDSamtoolsIndex "Error from samtools index pipe" 6
 	mv $tempIndexFile ${FILENAME}.bai && touch ${FILENAME}.bai
 
