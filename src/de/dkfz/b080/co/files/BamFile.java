@@ -533,7 +533,8 @@ public class BamFile extends BasicBamFile implements ITestdataSource {
 
     @Override
     public String toString() {
-        return String.format("BamFile\n  hasIndex=%b\n  hasFlagstats=%b\n  hasChromosomeDiff=%b  \nhasCoverage=%b", hasIndex(), hasFlagstats(), hasChromosomeDiff(), hasCoverage());
+        return String.format("BamFile %s hasIndex=%b hasFlagstats=%b hasChromosomeDiff=%b hasCoverage=%b",
+                super.toString(), hasIndex(), hasFlagstats(), hasChromosomeDiff(), hasCoverage());
     }
 
     @Override

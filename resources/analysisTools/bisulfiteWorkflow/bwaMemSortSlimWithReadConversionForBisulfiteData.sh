@@ -44,6 +44,7 @@ tempFlagstatsFile=${FILENAME_FLAGSTATS}.tmp
 # see http://sourceforge.net/p/samtools/mailman/samtools-help/thread/BAA90EF6FE3B4D45A7B2F6E0EC5A8366DA3AB5@USTLMLLYC102.rf.lilly.com/
 NP_SORT_ERRLOG=${RODDY_SCRATCH}/NP_SORT_ERRLOG
 FILENAME_SORT_LOG=${DIR_TEMP}/${bamname}_errlog_sort
+FILENAME_BWA_EC=${DIR_TEMP}/${bamname}_ec
 
 RAW_SEQ=${RAW_SEQ_1}
 source ${TOOL_COMMON_ALIGNMENT_SETTINGS_SCRIPT}
@@ -72,15 +73,22 @@ LENGTH_SEQ_2=`${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} 2>/dev/null | head 
 # make biobambam sort default
 useBioBamBamSort=${useBioBamBamSort-true}
 
+# Default: Dummy process IDs to simplify downstream logic.
+true & procTrim=$!
+true & procUnpack1=$!
+true & procUnpack2=$!
+true & procID_fqconv_r1=$!
+true & procID_fqconv_r2=$!
+
 if [[ ${bamFileExists} == false ]]; then	# we have to make the BAM 
 	mkfifo ${FNPIPE1} ${FNPIPE2}
 	if [[ $useAdaptorTrimming == true ]]; then # [[ "$ADAPTOR_TRIMMING_TOOL" == *.jar ]]
 		if [ "${qualityScore}" = "illumina" ]; then
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - > $i1" &
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - > $i2" &
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - > $i1" & procUnpack1=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} | ${PERL_BINARY} ${TOOL_CONVERT_ILLUMINA_SCORES} - > $i2" & procUnpack2=$!
 		else
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} > $i1" &
-			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} > $i2" &
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_1} > $i1" & procUnpack1=$!
+			eval "${UNZIPTOOL} ${UNZIPTOOL_OPTIONS} ${RAW_SEQ_2} > $i2" & procUnpack2=$!
 		fi
 		# done in the sourced script designed for bwa aln:
 		#     i1=$DIR_SCRATCH/at_i1
@@ -117,8 +125,6 @@ if [[ ${bamFileExists} == false ]]; then	# we have to make the BAM
 	[[ ${LENGTH_SEQ_2} != 0 ]] && INPUT_PIPES="${INPUT_PIPES} $FNPIPE2"
 	[[ ${LENGTH_SEQ_1} == 0 ]] && cat $FNPIPE1 >/dev/null
 	[[ ${LENGTH_SEQ_2} == 0 ]] && cat $FNPIPE2 >/dev/null
-else
-    true & procTrim=$!
 fi
 
 # Try to read from pipes BEFORE they are filled.
@@ -138,7 +144,8 @@ fi
 if [[ ${bamFileExists} == true ]]; then
 	echo "the BAM file already exists, re-creating other output files."
 	# make all the pipes
-	(cat ${FILENAME_SORTED_BAM} | ${MBUF_2G} | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} | ${SAMBAMBA_BINARY} view /dev/stdin | ${MBUF_2G} > $NP_COMBINEDANALYSIS_IN) & procIDOutPipe=$!
+	(cat ${FILENAME_SORTED_BAM} | ${MBUF_2G} | tee ${NP_COVERAGEQC_IN} ${NP_READBINS_IN} ${NP_FLAGSTATS} \
+	    | ${SAMBAMBA_BINARY} view /dev/stdin | ${MBUF_2G} > $NP_COMBINEDANALYSIS_IN) & procIDOutPipe=$!
 else
 	if [[ ${useBioBamBamSort} == false ]]; then
 		# we use samtools for making the index
@@ -173,7 +180,7 @@ else
 			${NP_READBINS_IN} \
 			${NP_FLAGSTATS} \
 			${NP_SAMTOOLS_INDEX_IN} > ${tempSortedBamFile}; \
-		    echo $? > ${DIR_TEMP}/${bamname}_ec) & procID_MEMSORT=$!
+		    echo "$? (Pipe Exit Codes: ${PIPESTATUS[@]})" > "$FILENAME_BWA_EC") & procID_MEMSORT=$!
 
 		# filter samtools error log
 		(cat $NP_SORT_ERRLOG | uniq > $FILENAME_SORT_LOG) & procID_logwrite=$!
@@ -210,14 +217,15 @@ else	# make sure to rename BAM file when it has been produced correctly
 fi
 
 wait $procTrim || throw 38 "Error from trimming"
+wait $procUnpack1 || throw 39 "Error from reading FASTQ 1"
+wait $procUnpack1 || throw 40 "Error from reading FASTQ 2"
+wait $procID_fqconv_r1 || throw 18 "Error in FQCONV (read 1)"
+wait $procID_fqconv_r2 || throw 19 "Error in FQCONV (read 2)"
+
 wait $procIDFlagstat || throw 14 "Error from sambamba flagstats"
 wait $procIDReadbinsCoverage || throw 15 "Error from genomeCoverage read bins"
 wait $procIDGenomeCoverage || throw 16 "Error from coverageQCD"
 wait $procIDCBA || throw 17 "Error from combined QC perl script"
-if [[ ${bamFileExists} == false ]]; then
-    wait $procID_fqconv_r1 || throw 18 "Error in FQCONV (read 1)"
-    wait $procID_fqconv_r2 || throw 19 "Error in FQCONV (read 2)"
-fi
 
 # rename QC files
 mv ${FILENAME_DIFFCHROM_MATRIX}.tmp ${FILENAME_DIFFCHROM_MATRIX} || throw 28 "Could not move file"

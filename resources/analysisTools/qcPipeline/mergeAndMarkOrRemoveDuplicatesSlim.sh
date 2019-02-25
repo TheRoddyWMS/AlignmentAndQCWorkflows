@@ -354,7 +354,7 @@ ${PERL_BINARY} ${TOOL_QC_JSON} \
     ${FILENAME_FLAGSTATS} \
     ${FILENAME_DIFFCHROM_STATISTICS} \
     > ${FILENAME_QCJSON}.tmp \
-    || throw 25 "Error when compiling qualitycontrol.json for ${FILENAME}"
+    || throw 25 "Error when compiling qualitycontrol.json for ${FILENAME_QCJSON}"
 mv ${FILENAME_QCJSON}.tmp ${FILENAME_QCJSON} || throw 27 "Could not move file"
 
 # if the BAM only contains single end reads, there can be no pairs to have insert sizes or ends mapping to different chromosomes
