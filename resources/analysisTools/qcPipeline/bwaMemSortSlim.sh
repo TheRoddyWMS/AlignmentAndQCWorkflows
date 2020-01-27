@@ -240,7 +240,7 @@ rm -rf ${WORKDIR} 2> /dev/null # Remove temporary files sorting
 
 wait $procTrim || throw 38 "Error from trimming"
 wait $procUnpack1 || throw 39 "Error from reading FASTQ 1"
-wait $procUnpack1 || throw 40 "Error from reading FASTQ 2"
+wait $procUnpack2 || throw 40 "Error from reading FASTQ 2"
 
 wait $procIDFlagstat; [[ $? -gt 0 ]] && echo "Error from sambamba flagstats" && exit 14
 wait $procIDReadbinsCoverage; [[ $? -gt 0 ]] && echo "Error from genomeCoverage read bins" && exit 15

@@ -218,7 +218,7 @@ fi
 
 wait $procTrim || throw 38 "Error from trimming"
 wait $procUnpack1 || throw 39 "Error from reading FASTQ 1"
-wait $procUnpack1 || throw 40 "Error from reading FASTQ 2"
+wait $procUnpack2 || throw 40 "Error from reading FASTQ 2"
 wait $procID_fqconv_r1 || throw 18 "Error in FQCONV (read 1)"
 wait $procID_fqconv_r2 || throw 19 "Error in FQCONV (read 2)"
 
